@@ -1,4 +1,7 @@
 ﻿using System;
+using System.IO;
+using System.Net;
+using System.Text;
 using System.Timers;
 using WebSocketSharp;
 using WebSocketSharp.Server;
@@ -34,6 +37,8 @@ namespace ConsoleService
         public DateTime lastTimeRetrievedData;
         public int requestIntervalMinutes = 5; //TODO: Do smthing better...
 
+        const string azureUri = "http://localhost:7071/api/DataCollector";
+
         Timer timer;
 
         protected override void OnMessage(MessageEventArgs e)
@@ -42,6 +47,32 @@ namespace ConsoleService
             Console.WriteLine(DateTime.Now + " | Received from client: " + _data);
 
             lastTimeRetrievedData = DateTime.Now;
+
+            PostDataToAzure(_data);
+        }
+        private void PostDataToAzure(string postData)
+        {
+            try
+            {
+                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(azureUri);
+                webRequest.Method = "POST";
+                webRequest.ContentType = "application/json";
+
+                using (Stream stream = webRequest.GetRequestStream())
+                {
+                    byte[] buffer = Encoding.UTF8.GetBytes(postData);
+                    stream.Write(buffer, 0, buffer.Length);
+
+                    Console.WriteLine(DateTime.Now + " | Send data to Azure.");
+                }
+
+                HttpWebResponse webResponse = (HttpWebResponse)webRequest.GetResponse();
+                webResponse.Dispose();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(DateTime.Now + " | [ERROR] " + e.Message); //TODO: Extrude console log into function both in client and server project.
+            }
         }
 
         protected override void OnOpen()
@@ -54,7 +85,7 @@ namespace ConsoleService
             timer.Enabled = true;
         }
 
-        protected override void OnError(ErrorEventArgs e)
+        protected override void OnError(WebSocketSharp.ErrorEventArgs e)
         {
             Console.WriteLine(DateTime.Now + " | [ERROR] " + e.Message);
         }
